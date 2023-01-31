@@ -94,8 +94,9 @@ class ForecastLitModule(LightningModule):
         std_mean_denorm, std_std_denorm = np.zeros_like(std), 1 / std
         self.std_denormalize = transforms.Normalize(std_mean_denorm, std_std_denorm)
 
-    def set_lat_lon(self, lat, lon):
+    def set_lat_lon(self, lat, split_lat, lon):
         self.lat = lat
+        self.split_lat = split_lat
         self.lon = lon
 
     def set_pred_range(self, r):
@@ -177,7 +178,7 @@ class ForecastLitModule(LightningModule):
             steps=pred_steps,
             metric=self.val_loss,
             transform=self.denormalization,
-            lat=self.lat,
+            lat=self.lat if not self.split_lat.any() else self.split_lat,
             log_steps=steps,
             log_days=days,
             mean_transform=self.mean_denormalize,
@@ -230,7 +231,7 @@ class ForecastLitModule(LightningModule):
             out_variables,
             transform_pred=False,
             transform=self.denormalization,
-            lat=self.lat,
+            lat=self.lat if not self.split_lat.any() else self.split_lat,,
             log_steps=steps,
             log_days=days,
         )

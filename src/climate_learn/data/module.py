@@ -49,6 +49,7 @@ class DataModule(LightningDataModule):
         batch_size=64,
         num_workers=0,
         pin_memory=False,
+        sys_gen = False
     ):
         r"""
         .. highlight:: python
@@ -161,7 +162,7 @@ class DataModule(LightningDataModule):
         )
 
     def get_lat_lon(self):
-        return self.train_dataset.lat, self.train_dataset.lon
+        return self.train_dataset.lat, self.train_dataset.split_lat, self.train_dataset.lon
 
     def get_out_transforms(self):
         return self.train_dataset.out_transform
