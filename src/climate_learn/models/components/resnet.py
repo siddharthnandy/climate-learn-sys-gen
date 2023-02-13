@@ -130,7 +130,7 @@ class ResNet(nn.Module):
             self.n_vars = len(out_variables)
 
         pred = self.predict(x)
-        return ([m(pred, y, out_variables, lat=lat) for m in metric], x)
+        return ([m(pred, y, out_variables, lat=lat, sys_gen_x=x.cpu()) for m in metric], x)
 
     def val_rollout(
         self,
@@ -204,6 +204,7 @@ class ResNet(nn.Module):
                         log_days=log_days,
                         log_day=log_day,
                         clim=clim,
+                        sys_gen_x=x.cpu(),
                     )
                     for m in metric
                 ],
@@ -213,10 +214,13 @@ class ResNet(nn.Module):
             if steps > 1:
                 assert len(variables) == len(out_variables)
 
+            x_step = x
+            # print(x.cpu().shape)
+            # print(x.cpu()[0,0,1:3])
             preds = []
             for _ in range(steps):
-                x = self.predict(x)
-                preds.append(x)
+                x_step = self.predict(x_step)
+                preds.append(x_step)
             preds = torch.stack(preds, dim=1)
             if len(y.shape) == 4:
                 y = y.unsqueeze(1)
@@ -232,6 +236,7 @@ class ResNet(nn.Module):
                         log_steps=log_steps,
                         log_days=log_days,
                         clim=clim,
+                        sys_gen_x=x.cpu(),
                     )
                     for m in metric
                 ],
@@ -320,9 +325,10 @@ class ResNet(nn.Module):
                 assert len(variables) == len(out_variables)
 
             preds = []
+            x_tmp = x
             for _ in range(steps):
-                x = self.predict(x)
-                preds.append(x)
+                x_tmp = self.predict(x_tmp)
+                preds.append(x_tmp)
             preds = torch.stack(preds, dim=1)
             if len(y.shape) == 4:
                 y = y.unsqueeze(1)
@@ -338,6 +344,7 @@ class ResNet(nn.Module):
                         log_steps=log_steps,
                         log_days=log_days,
                         clim=clim,
+                        sys_gen_x=x.cpu()
                     )
                     for m in metric
                 ],

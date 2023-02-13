@@ -16,6 +16,7 @@ def mse(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None,
 ):
     """
     y: [N, 3, H, W]
@@ -51,6 +52,7 @@ def lat_weighted_mse(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, C, H, W]
@@ -62,12 +64,16 @@ def lat_weighted_mse(
         pred, _ = pred.loc, pred.scale
     error = (pred - y) ** 2  # [N, C, H, W]
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
-    )  # (1, H, 1)
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # )  # (1, H, 1)
+    w_lat = w_lat.to(error.device)
 
     if mask is None:
         mask = torch.ones_like(error)[:, 0]
@@ -95,6 +101,7 @@ def lat_weighted_mse_val(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, T, 3, H, W]
@@ -106,12 +113,16 @@ def lat_weighted_mse_val(
         pred, _ = pred.loc, pred.scale
     error = (pred - y) ** 2  # [N, T, C, H, W]
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
-    )  # (1, H, 1)
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # )  # (1, H, 1)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     with torch.no_grad():
@@ -138,6 +149,7 @@ def lat_weighted_nll(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, C, H, W]
@@ -148,12 +160,16 @@ def lat_weighted_nll(
 
     error = -pred.log_prob(y)  # [N, C, H, W]
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
-    )  # (1, H, 1)
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # )  # (1, H, 1)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     with torch.no_grad():
@@ -176,6 +192,7 @@ def crps_gaussian(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, C, H, W]
@@ -193,12 +210,16 @@ def crps_gaussian(
 
     crps = std * (s * (2 * cdf - 1) + 2 * pdf - 1 / torch.pi)
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(crps.device)
-    )  # (1, H, 1)
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # )  # (1, H, 1)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     for i, var in enumerate(vars):
@@ -220,6 +241,7 @@ def crps_gaussian_val(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, C, H, W]
@@ -237,12 +259,16 @@ def crps_gaussian_val(
 
     crps = std * (s * (2 * cdf - 1) + 2 * pdf - 1 / torch.pi)
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(crps.device)
-    )  # (1, H, 1)
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # )  # (1, H, 1)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     for i, var in enumerate(vars):
@@ -266,6 +292,7 @@ def lat_weighted_rmse(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None,
 ):
     """
     y: [N, T, 3, H, W]
@@ -282,18 +309,19 @@ def lat_weighted_rmse(
     y = y.to(torch.float32)
 
     error = (pred - y) ** 2  # [N, T, 3, H, W]
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
 
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
-    print(w_lat.shape)
+    # w_lat = torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     with torch.no_grad():
         for i, var in enumerate(vars):
             for day, step in zip(log_days, log_steps):
-                None if i != 0 else print(error[:, step - 1, i].shape)
                 loss_dict[f"w_rmse_{var}_day_{day}"] = torch.mean(
                     torch.sqrt(torch.mean(error[:, step - 1, i] * w_lat, dim=(-2, -1)))
                 )
@@ -314,6 +342,7 @@ def lat_weighted_spread_skill_ratio(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, 3, H, W]
@@ -330,10 +359,14 @@ def lat_weighted_spread_skill_ratio(
 
     error = (pred - y) ** 2  # [N, 3, H, W]
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # latitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()
-    w_lat = torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # w_lat = torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     with torch.no_grad():
@@ -359,6 +392,7 @@ def lat_weighted_acc(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, T, 3, H, W]
@@ -375,12 +409,16 @@ def lat_weighted_acc(
     pred = pred.to(torch.float32)
     y = y.to(torch.float32)
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(pred.device)
-    )  # [1, H, 1]
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(pred.device)
+    # )  # [1, H, 1]
+    w_lat = w_lat.to(pred.device)
 
     # clim = torch.mean(y, dim=(0, 1), keepdim=True)
     clim = clim.to(pred.device)
@@ -421,12 +459,16 @@ def categorical_loss(
     _, labels = y.max(dim=1)  # y.shape = pred.shape = [128, 50, 1, 32, 64]
     error = loss(pred, labels.to(pred.device))  # error.shape [128, 1, 32, 64]
 
+    x_lats = sys_gen_x[:, 0, 1, :, :] # [B, H, W] - latitude channel
+
     # lattitude weights
-    w_lat = np.cos(np.deg2rad(lat))
+    # w_lat = np.cos(np.deg2rad(lat))
+    w_lat = np.cos(x_lats)
     w_lat = w_lat / w_lat.mean()  # (H, )
-    w_lat = (
-        torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
-    )  # (1, H, 1)
+    # w_lat = (
+    #     torch.from_numpy(w_lat).unsqueeze(0).unsqueeze(-1).to(error.device)
+    # )  # (1, H, 1)
+    w_lat = w_lat.to(error.device)
 
     loss_dict = {}
     with torch.no_grad():
@@ -449,6 +491,7 @@ def rmse(
     log_days=None,
     log_day=None,
     clim=None,
+    sys_gen_x=None
 ):
     """
     y: [N, C, H, W]
