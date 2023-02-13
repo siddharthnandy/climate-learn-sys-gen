@@ -117,7 +117,6 @@ class ERA5Forecasting(ERA5):
         self.history = history
         self.window = window
         self.pred_range = pred_range
-        self.split_lat = np.empty(0)
 
         inp_data = xr.concat([self.data_dict[k] for k in self.in_vars], dim="level")
         out_data = xr.concat([self.data_dict[k] for k in self.out_vars], dim="level")
@@ -126,7 +125,8 @@ class ERA5Forecasting(ERA5):
 
         input_data = inp_data[0:-pred_range:subsample].to_numpy().astype(np.float32)
         output_data = out_data[pred_range::subsample].to_numpy().astype(np.float32)
-
+        
+        sys_gen = True
         if sys_gen:
             num_examples = input_data.shape[0]
             num_lat = input_data.shape[2]
@@ -138,8 +138,7 @@ class ERA5Forecasting(ERA5):
             input_data = np.concatenate((input_data, lat_grid, lon_grid), axis=1)
             lowlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, 0:num_lat//2, np.newaxis], num_examples, axis=0)
             highlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, num_lat//2:, np.newaxis], num_examples, axis=0)
-            self.split_lat = np.concatenate((lowlat_tensors, highlat_tensors)).astype(np.float32)
-            if split == 'train':
+            if split == 'train' or split == 'val':
                 lowlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
                 highlat_highlong_input_patch = input_data[:,:,num_lat//2:,num_lon//2:]
                 lowlat_lowlong_output_patch = output_data[:,:,0:num_lat//2,0:num_lon//2]
@@ -222,6 +221,7 @@ class ERA5Forecasting(ERA5):
 
     def __getitem__(self, index):
         inp, out = self.create_inp_out(index)
+        lats = inp[0,-2]
         out = self.out_transform(torch.from_numpy(out))  # C, 32, 64
         inp = self.inp_transform(torch.from_numpy(inp))  # T, C, 32, 64
         if self.constants_data is not None:
@@ -232,7 +232,7 @@ class ERA5Forecasting(ERA5):
             )
             constant = self.constant_transform(constant)
             inp = torch.cat((inp, constant), dim=1)
-        return inp, out, self.in_vars + list(self.constants.keys()), self.out_vars
+        return inp, out, self.in_vars + list(self.constants.keys()), self.out_vars, lats
 
     def __len__(self):
         return len(self.inp_data) - ((self.history - 1) * self.window + self.pred_range)
