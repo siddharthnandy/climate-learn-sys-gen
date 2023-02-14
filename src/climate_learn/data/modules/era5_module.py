@@ -221,9 +221,9 @@ class ERA5Forecasting(ERA5):
 
     def __getitem__(self, index):
         inp, out = self.create_inp_out(index)
-        lats = inp[0,-2]
-        out = self.out_transform(torch.from_numpy(out))  # C, 32, 64
-        inp = self.inp_transform(torch.from_numpy(inp))  # T, C, 32, 64
+        lats = inp[0,-2][np.newaxis,:,:] # 1, 16, 32
+        out = self.out_transform(torch.from_numpy(out))  # C, 16, 32
+        inp = self.inp_transform(torch.from_numpy(inp))  # T, C, 16, 32
         if self.constants_data is not None:
             constant = (
                 torch.from_numpy(self.constants_data)
