@@ -50,8 +50,13 @@ class ERA5(Dataset):
             if name in SINGLE_LEVEL_VARS:
                 data_dict[name] = []
             elif name in PRESSURE_LEVEL_VARS:
-                for level in DEFAULT_PRESSURE_LEVELS:
-                    data_dict[f"{name}_{level}"] = []
+                if name == "geopotential":
+                    level = 500
+                elif name == "temperature":
+                    level = 850
+                data_dict[f"{name}_{level}"] = []
+                # for level in DEFAULT_PRESSURE_LEVELS:
+                    # data_dict[f"{name}_{level}"] = []
             else:
                 raise NotImplementedError(
                     f"{name} is not either in single-level or pressure-level dict"
@@ -68,9 +73,16 @@ class ERA5(Dataset):
                     xr_data = xr_data.expand_dims(dim="level", axis=1)
                     data_dict[var].append(xr_data)
                 else:  # pressure level
-                    for level in DEFAULT_PRESSURE_LEVELS:
-                        xr_data_level = xr_data.sel(level=[level])
-                        data_dict[f"{var}_{level}"].append(xr_data_level)
+                    # for level in DEFAULT_PRESSURE_LEVELS:
+                    #     xr_data_level = xr_data.sel(level=[level])
+                    #     data_dict[f"{var}_{level}"].append(xr_data_level)
+                    if var == "geopotential":
+                        level = 500
+                    elif var == "temperature":
+                        level = 850
+                    xr_data_level = xr_data.sel(level=[level])
+                    data_dict[f"{var}_{level}"].append(xr_data_level)
+
 
         data_dict = {k: xr.concat(data_dict[k], dim="time") for k in data_dict.keys()}
         # precipitation and solar radiation miss a few data points in the beginning
