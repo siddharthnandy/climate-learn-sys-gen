@@ -15,15 +15,16 @@ def collate_fn(batch):
     r"""Collate function for DataLoaders.
 
     :param batch: A batch of data samples.
-    :type batch: List[Tuple[torch.Tensor, torch.Tensor, List[str], List[str]]]
-    :return: A tuple of `input`, `output`, `variables`, and `out_variables`.
-    :rtype: Tuple[torch.Tensor, torch.Tensor, List[str], List[str]]
+    :type batch: List[Tuple[torch.Tensor, torch.Tensor, List[str], List[str], torch.Tensor]]
+    :return: A tuple of `input`, `output`, `variables`, `out_variables`, and `lats`.
+    :rtype: Tuple[torch.Tensor, torch.Tensor, List[str], List[str], torch.Tensor]
     """
     inp = torch.stack([batch[i][0] for i in range(len(batch))])
     out = torch.stack([batch[i][1] for i in range(len(batch))])
     variables = batch[0][2]
     out_variables = batch[0][3]
-    return inp, out, variables, out_variables
+    lats = np.stack([batch[i][4] for i in range(len(batch))])
+    return inp, out, variables, out_variables, lats
 
 
 class DataModule(LightningDataModule):
