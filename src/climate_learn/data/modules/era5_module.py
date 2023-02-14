@@ -150,18 +150,19 @@ class ERA5Forecasting(ERA5):
             input_data = np.concatenate((input_data, lat_grid, lon_grid), axis=1)
             lowlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, 0:num_lat//2, np.newaxis], num_examples, axis=0)
             highlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, num_lat//2:, np.newaxis], num_examples, axis=0)
+
+            lowlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
+            lowlat_lowlong_output_patch = output_data[:,:,0:num_lat//2,0:num_lon//2]
+            lowlat_highlong_input_patch = input_data[:,:,0:num_lat//2,num_lon//2:]
+            lowlat_highlong_output_patch = output_data[:,:,0:num_lat//2,num_lon//2:]
+            highlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
+            highlat_lowlong_output_patch = output_data[:,:,num_lat//2:,0:num_lon//2]
+            highlat_highlong_input_patch = input_data[:,:,num_lat//2:,num_lon//2:]
+            highlat_highlong_output_patch = output_data[:,:,num_lat//2:,num_lon//2:]
             if split == 'train' or split == 'val':
-                lowlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
-                highlat_highlong_input_patch = input_data[:,:,num_lat//2:,num_lon//2:]
-                lowlat_lowlong_output_patch = output_data[:,:,0:num_lat//2,0:num_lon//2]
-                highlat_highlong_output_patch = output_data[:,:,num_lat//2:,num_lon//2:]
                 self.inp_data = np.concatenate((lowlat_lowlong_input_patch, highlat_highlong_input_patch)).astype(np.float32)
                 self.out_data = np.concatenate((lowlat_lowlong_output_patch, highlat_highlong_output_patch)).astype(np.float32)
             else:
-                lowlat_highlong_input_patch = input_data[:,:,0:num_lat//2,num_lon//2:]
-                highlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
-                lowlat_highlong_output_patch = output_data[:,:,0:num_lat//2,num_lon//2:]
-                highlat_lowlong_output_patch = output_data[:,:,num_lat//2:,0:num_lon//2]
                 self.inp_data = np.concatenate((lowlat_highlong_input_patch, highlat_lowlong_input_patch)).astype(np.float32)
                 self.out_data = np.concatenate((lowlat_highlong_output_patch, highlat_lowlong_output_patch)).astype(np.float32)
         else:
