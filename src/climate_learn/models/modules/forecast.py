@@ -12,10 +12,8 @@ from .utils.metrics import (
     crps_gaussian,
     crps_gaussian_val,
     lat_weighted_acc,
-    mse,
     lat_weighted_mse,
     lat_weighted_nll,
-    rmse,
     lat_weighted_rmse,
     categorical_loss,
     lat_weighted_spread_skill_ratio,
@@ -37,7 +35,7 @@ class ForecastLitModule(LightningModule):
         super().__init__()
         self.save_hyperparameters(logger=False, ignore=["net"])
         self.net = net
-        self.test_loss = [rmse, lat_weighted_acc]
+        self.test_loss = [lat_weighted_rmse, lat_weighted_acc]
         self.lr_baseline = None
         if net.prob_type == "parametric":
             self.train_loss = [crps_gaussian]
@@ -61,10 +59,8 @@ class ForecastLitModule(LightningModule):
             self.bins[0] = -np.inf
             self.bins[-1] = np.inf
         else:  # deter
-            # self.train_loss = [lat_weighted_mse]
-            # self.val_loss = [lat_weighted_rmse]
-            self.train_loss = [mse]
-            self.val_loss = [rmse]
+            self.train_loss = [lat_weighted_mse]
+            self.val_loss = [lat_weighted_rmse]
 
         if optimizer == "adam":
             self.optim_cls = torch.optim.Adam
@@ -131,7 +127,7 @@ class ForecastLitModule(LightningModule):
             )  # [128, 1, 32, 64, 50]
 
         loss_dict, _ = self.net.forward(
-            x, y, out_variables, metric=self.train_loss, lat=self.lat
+            x, y, out_variables, metric=self.train_loss, lat=self.lat, deg_lats=lats
         )
         loss_dict = loss_dict[0]
         for var in loss_dict.keys():
@@ -147,7 +143,6 @@ class ForecastLitModule(LightningModule):
 
     def validation_step(self, batch: Any, batch_idx: int):
         x, y, variables, out_variables, lats = batch
-        print(lats.shape)
         pred_steps = y.shape[1]
         pred_range = self.pred_range.hours()
 
@@ -188,6 +183,7 @@ class ForecastLitModule(LightningModule):
             mean_transform=self.mean_denormalize,
             std_transform=self.std_denormalize,
             log_day=day,
+            deg_lats=lats,
         )
         loss_dict = {}
         for d in all_loss_dicts:
@@ -207,7 +203,7 @@ class ForecastLitModule(LightningModule):
         return loss_dict
 
     def test_step(self, batch: Any, batch_idx: int):
-        x, y, variables, out_variables = batch
+        x, y, variables, out_variables, lats = batch
         pred_steps = y.shape[1]
         pred_range = self.pred_range.hours()
         day = int(pred_range / 24)
@@ -229,7 +225,7 @@ class ForecastLitModule(LightningModule):
             .repeat(y.shape[0], y.shape[1], 1, 1, 1)
             .to(y.device)
         )
-        baseline_rmse = rmse(
+        baseline_rmse = lat_weighted_rmse(
             clim_pred,
             y,
             out_variables,
@@ -238,7 +234,7 @@ class ForecastLitModule(LightningModule):
             lat=self.lat,
             log_steps=steps,
             log_days=days,
-            sys_gen_x=x.cpu(),
+            deg_lats=lats,
         )
         for var in baseline_rmse.keys():
             self.log(
@@ -252,7 +248,7 @@ class ForecastLitModule(LightningModule):
 
         # rmse for persistence baseline
         pers_pred = x  # B, 1, C, H, W
-        baseline_rmse = rmse(
+        baseline_rmse = lat_weighted_rmse(
             pers_pred,
             y,
             out_variables,
@@ -261,7 +257,7 @@ class ForecastLitModule(LightningModule):
             lat=self.lat,
             log_steps=steps,
             log_days=days,
-            sys_gen_x=x.cpu(),
+            deg_lats=lats,
         )
         for var in baseline_rmse.keys():
             self.log(
@@ -291,7 +287,7 @@ class ForecastLitModule(LightningModule):
                 lat=self.lat,
                 log_steps=steps,
                 log_days=days,
-                sys_gen_x=x.cpu(),
+                deg_lats=lats,
             )
             for var in baseline_rmse.keys():
                 self.log(
@@ -331,6 +327,7 @@ class ForecastLitModule(LightningModule):
             mean_transform=self.mean_denormalize,
             std_transform=self.std_denormalize,
             log_day=day,
+            deg_lats=lats,
         )
 
         loss_dict = {}
@@ -356,7 +353,7 @@ class ForecastLitModule(LightningModule):
             .repeat(y.shape[0], y.shape[1], 1, 1, 1)
             .to(y.device)
         )
-        baseline_rmse = rmse(
+        baseline_rmse = lat_weighted_rmse(
             clim_pred,
             y,
             out_variables,
@@ -365,7 +362,7 @@ class ForecastLitModule(LightningModule):
             lat=self.lat,
             log_steps=steps,
             log_days=days,
-            sys_gen_x=x.cpu(),
+            deg_lats=lats,
         )
         for var in baseline_rmse.keys():
             self.log(
@@ -379,7 +376,7 @@ class ForecastLitModule(LightningModule):
 
         # rmse for persistence baseline
         pers_pred = x  # B, 1, C, H, W
-        baseline_rmse = rmse(
+        baseline_rmse = lat_weighted_rmse(
             pers_pred,
             y,
             out_variables,
@@ -388,7 +385,7 @@ class ForecastLitModule(LightningModule):
             lat=self.lat,
             log_steps=steps,
             log_days=days,
-            sys_gen_x=x.cpu(),
+            deg_lats=lats,
         )
         for var in baseline_rmse.keys():
             self.log(

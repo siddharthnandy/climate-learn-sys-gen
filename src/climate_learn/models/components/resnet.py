@@ -124,13 +124,13 @@ class ResNet(nn.Module):
 
         return pred
 
-    def forward(self, x: torch.Tensor, y: torch.Tensor, out_variables, metric, lat):
+    def forward(self, x: torch.Tensor, y: torch.Tensor, out_variables, metric, lat, deg_lats):
         # B, C, H, W
         if self.prob_type == "categorical":
             self.n_vars = len(out_variables)
 
         pred = self.predict(x)
-        return ([m(pred, y, out_variables, lat=lat, sys_gen_x=x.cpu()) for m in metric], x)
+        return ([m(pred, y, out_variables, lat=lat, deg_lats=deg_lats) for m in metric], x)
 
     def val_rollout(
         self,
@@ -148,6 +148,7 @@ class ResNet(nn.Module):
         mean_transform,
         std_transform,
         log_day,
+        deg_lats=None,
     ):
         """
         Notes from climate_uncertainty repo merge
@@ -204,7 +205,7 @@ class ResNet(nn.Module):
                         log_days=log_days,
                         log_day=log_day,
                         clim=clim,
-                        sys_gen_x=x.cpu(),
+                        deg_lats=deg_lats,
                     )
                     for m in metric
                 ],
@@ -236,7 +237,7 @@ class ResNet(nn.Module):
                         log_steps=log_steps,
                         log_days=log_days,
                         clim=clim,
-                        sys_gen_x=x.cpu(),
+                        deg_lats=deg_lats,
                     )
                     for m in metric
                 ],
@@ -259,6 +260,7 @@ class ResNet(nn.Module):
         mean_transform,
         std_transform,
         log_day,
+        deg_lats=None,
     ):
         """
         Notes from climate_uncertainty repo merge
@@ -315,6 +317,7 @@ class ResNet(nn.Module):
                         log_days=log_days,
                         log_day=log_day,
                         clim=clim,
+                        deg_lats=deg_lats,
                     )
                     for m in metric
                 ],
@@ -344,7 +347,7 @@ class ResNet(nn.Module):
                         log_steps=log_steps,
                         log_days=log_days,
                         clim=clim,
-                        sys_gen_x=x.cpu()
+                        deg_lats=deg_lats
                     )
                     for m in metric
                 ],
