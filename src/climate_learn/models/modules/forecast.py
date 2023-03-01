@@ -218,35 +218,36 @@ class ForecastLitModule(LightningModule):
         day = int(days_each_step)
 
         # rmse for climatology baseline
-        clim_pred = self.train_clim  # C, H, W
-        clim_pred = (
-            clim_pred.unsqueeze(0)
-            .unsqueeze(0)
-            .repeat(y.shape[0], y.shape[1], 1, 1, 1)
-            .to(y.device)
-        )
-        baseline_rmse = lat_weighted_rmse(
-            clim_pred,
-            y,
-            out_variables,
-            transform_pred=False,
-            transform=self.denormalization,
-            lat=self.lat,
-            log_steps=steps,
-            log_days=days,
-            deg_lats=lats,
-        )
-        for var in baseline_rmse.keys():
-            self.log(
-                "test_climatology_baseline/" + var,
-                baseline_rmse[var],
-                on_step=False,
-                on_epoch=True,
-                sync_dist=True,
-                batch_size=len(x),
-            )
+        # clim_pred = self.train_clim  # C, H, W
+        # clim_pred = (
+        #     clim_pred.unsqueeze(0)
+        #     .unsqueeze(0)
+        #     .repeat(y.shape[0], y.shape[1], 1, 1, 1)
+        #     .to(y.device)
+        # )
+        # baseline_rmse = lat_weighted_rmse(
+        #     clim_pred,
+        #     y,
+        #     out_variables,
+        #     transform_pred=False,
+        #     transform=self.denormalization,
+        #     lat=self.lat,
+        #     log_steps=steps,
+        #     log_days=days,
+        #     deg_lats=lats,
+        # )
+        # for var in baseline_rmse.keys():
+        #     self.log(
+        #         "test_climatology_baseline/" + var,
+        #         baseline_rmse[var],
+        #         on_step=False,
+        #         on_epoch=True,
+        #         sync_dist=True,
+        #         batch_size=len(x),
+        #     )
 
         # rmse for persistence baseline
+        # pers_pred = x[:,:,:-2]  # B, 1, C, H, W
         pers_pred = x  # B, 1, C, H, W
         baseline_rmse = lat_weighted_rmse(
             pers_pred,
@@ -346,35 +347,36 @@ class ForecastLitModule(LightningModule):
             )
 
         # rmse for climatology baseline
-        clim_pred = self.train_clim  # C, H, W
-        clim_pred = (
-            clim_pred.unsqueeze(0)
-            .unsqueeze(0)
-            .repeat(y.shape[0], y.shape[1], 1, 1, 1)
-            .to(y.device)
-        )
-        baseline_rmse = lat_weighted_rmse(
-            clim_pred,
-            y,
-            out_variables,
-            transform_pred=False,
-            transform=self.denormalization,
-            lat=self.lat,
-            log_steps=steps,
-            log_days=days,
-            deg_lats=lats,
-        )
-        for var in baseline_rmse.keys():
-            self.log(
-                "test_climatology_baseline/" + var,
-                baseline_rmse[var],
-                on_step=False,
-                on_epoch=True,
-                sync_dist=True,
-                batch_size=len(x),
-            )
+        # clim_pred = self.train_clim  # C, H, W
+        # clim_pred = (
+        #     clim_pred.unsqueeze(0)
+        #     .unsqueeze(0)
+        #     .repeat(y.shape[0], y.shape[1], 1, 1, 1)
+        #     .to(y.device)
+        # )
+        # baseline_rmse = lat_weighted_rmse(
+        #     clim_pred,
+        #     y,
+        #     out_variables,
+        #     transform_pred=False,
+        #     transform=self.denormalization,
+        #     lat=self.lat,
+        #     log_steps=steps,
+        #     log_days=days,
+        #     deg_lats=lats,
+        # )
+        # for var in baseline_rmse.keys():
+        #     self.log(
+        #         "test_climatology_baseline/" + var,
+        #         baseline_rmse[var],
+        #         on_step=False,
+        #         on_epoch=True,
+        #         sync_dist=True,
+        #         batch_size=len(x),
+        #     )
 
         # rmse for persistence baseline
+        # pers_pred = x[:,:,:-2]  # B, 1, C, H, W
         pers_pred = x  # B, 1, C, H, W
         baseline_rmse = lat_weighted_rmse(
             pers_pred,
