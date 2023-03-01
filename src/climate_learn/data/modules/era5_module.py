@@ -56,7 +56,7 @@ class ERA5(Dataset):
                     level = 850
                 data_dict[f"{name}_{level}"] = []
                 # for level in DEFAULT_PRESSURE_LEVELS:
-                    # data_dict[f"{name}_{level}"] = []
+                #     data_dict[f"{name}_{level}"] = []
             else:
                 raise NotImplementedError(
                     f"{name} is not either in single-level or pressure-level dict"
@@ -129,12 +129,14 @@ class ERA5Forecasting(ERA5):
         self.history = history
         self.window = window
         self.pred_range = pred_range
-
+        if "2m_temperature" in self.in_vars:
+            self.data_dict["2m_temperature"] = self.data_dict["2m_temperature"].assign_coords(level=("level", [2]))
         inp_data = xr.concat([self.data_dict[k] for k in self.in_vars], dim="level")
         out_data = xr.concat([self.data_dict[k] for k in self.out_vars], dim="level")
+        print("input NP conversion")
         self.inp_data = inp_data.to_numpy().astype(np.float32)
         self.out_data = out_data.to_numpy().astype(np.float32)
-
+        print("done")
         input_data = inp_data[0:-pred_range:subsample].to_numpy().astype(np.float32)
         output_data = out_data[pred_range::subsample].to_numpy().astype(np.float32)
         
@@ -151,20 +153,43 @@ class ERA5Forecasting(ERA5):
             lowlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, 0:num_lat//2, np.newaxis], num_examples, axis=0)
             highlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, num_lat//2:, np.newaxis], num_examples, axis=0)
 
+            # Southern Hemisphere
+            lowlat_input_patch = input_data[:,:,0:num_lat//2,:]
+            lowlat_output_patch = output_data[:,:,0:num_lat//2,:] 
+            # Northern Hemisphere
+            highlat_input_patch = input_data[:,:,num_lat//2:,:]
+            highlat_output_patch = output_data[:,:,num_lat//2:,:]
+            # Western Hemisphere
+            lowlong_input_patch = input_data[:,:,:,0:num_lon//2]
+            lowlong_output_patch = output_data[:,:,:,0:num_lon//2]
+            # Eastern Hemisphere
+            highlong_input_patch = input_data[:,:,:,num_lon//2:]
+            highlong_output_patch = output_data[:,:,:,num_lon//2:]
+
+            # SW quadrant
             lowlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
             lowlat_lowlong_output_patch = output_data[:,:,0:num_lat//2,0:num_lon//2]
+             # SE quadrant
             lowlat_highlong_input_patch = input_data[:,:,0:num_lat//2,num_lon//2:]
             lowlat_highlong_output_patch = output_data[:,:,0:num_lat//2,num_lon//2:]
+             # NW quadrant
             highlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
             highlat_lowlong_output_patch = output_data[:,:,num_lat//2:,0:num_lon//2]
+             # NE quadrant
             highlat_highlong_input_patch = input_data[:,:,num_lat//2:,num_lon//2:]
             highlat_highlong_output_patch = output_data[:,:,num_lat//2:,num_lon//2:]
-            if split == 'train' or split == 'val':
-                self.inp_data = np.concatenate((lowlat_lowlong_input_patch, highlat_highlong_input_patch)).astype(np.float32)
-                self.out_data = np.concatenate((lowlat_lowlong_output_patch, highlat_highlong_output_patch)).astype(np.float32)
+
+            if (split == 'train' or split == 'val'):
+                # self.inp_data = np.concatenate((lowlat_lowlong_input_patch, highlat_highlong_input_patch)).astype(np.float32)
+                # self.out_data = np.concatenate((lowlat_lowlong_output_patch, highlat_highlong_output_patch)).astype(np.float32)
+                self.inp_data = highlat_input_patch
+                self.out_data = highlat_output_patch
             else:
-                self.inp_data = np.concatenate((lowlat_highlong_input_patch, highlat_lowlong_input_patch)).astype(np.float32)
-                self.out_data = np.concatenate((lowlat_highlong_output_patch, highlat_lowlong_output_patch)).astype(np.float32)
+                # self.inp_data = np.concatenate((lowlat_highlong_input_patch, highlat_lowlong_input_patch)).astype(np.float32)
+                # self.out_data = np.concatenate((lowlat_highlong_output_patch, highlat_lowlong_output_patch)).astype(np.float32)
+                self.inp_data = lowlat_input_patch
+                self.out_data = lowlat_output_patch
+
         else:
             self.inp_data = input_data
             self.out_data = output_data
@@ -183,7 +208,9 @@ class ERA5Forecasting(ERA5):
         self.downscale_ratio = 1
 
         if split == "train":
-            self.inp_transform = self.get_normalize(self.inp_data)
+
+            # self.inp_transform = self.get_normalize(self.inp_data)
+            self.inp_transform = self.get_normalize(self.inp_data[:, :-2])
             self.out_transform = self.get_normalize(self.out_data)
             self.constant_transform = (
                 self.get_normalize(np.expand_dims(self.constants_data, axis=0))
@@ -235,6 +262,7 @@ class ERA5Forecasting(ERA5):
     def __getitem__(self, index):
         inp, out = self.create_inp_out(index)
         lats = inp[0,-2][np.newaxis,:,:] # 1, 16, 32
+        inp = inp[:,:-2,:,:] # For no Lat/Long Channels
         out = self.out_transform(torch.from_numpy(out))  # C, 16, 32
         inp = self.inp_transform(torch.from_numpy(inp))  # T, C, 16, 32
         if self.constants_data is not None:
