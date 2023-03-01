@@ -215,13 +215,10 @@ class ResNet(nn.Module):
             if steps > 1:
                 assert len(variables) == len(out_variables)
 
-            x_step = x
-            # print(x.cpu().shape)
-            # print(x.cpu()[0,0,1:3])
             preds = []
             for _ in range(steps):
-                x_step = self.predict(x_step)
-                preds.append(x_step)
+                x = self.predict(x)
+                preds.append(x)
             preds = torch.stack(preds, dim=1)
             if len(y.shape) == 4:
                 y = y.unsqueeze(1)
@@ -328,10 +325,9 @@ class ResNet(nn.Module):
                 assert len(variables) == len(out_variables)
 
             preds = []
-            x_tmp = x
             for _ in range(steps):
-                x_tmp = self.predict(x_tmp)
-                preds.append(x_tmp)
+                x = self.predict(x)
+                preds.append(x)
             preds = torch.stack(preds, dim=1)
             if len(y.shape) == 4:
                 y = y.unsqueeze(1)
