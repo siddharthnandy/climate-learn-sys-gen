@@ -83,7 +83,8 @@ def lat_weighted_mse(
             loss_dict[var] = (error[:, i] * w_lat * mask).sum() / mask.sum()
 
     loss_dict["loss"] = (
-        (error * w_lat.unsqueeze(1)).mean(dim=1) * mask
+        # (error * w_lat.unsqueeze(1)).mean(dim=1) * mask
+        (error * w_lat).mean(dim=1) * mask
     ).sum() / mask.sum()
     return loss_dict
 
