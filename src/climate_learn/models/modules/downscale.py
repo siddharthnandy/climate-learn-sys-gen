@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable, Iterable
 
 import torch
 from pytorch_lightning import LightningModule
@@ -8,11 +8,21 @@ from .utils.lr_scheduler import LinearWarmupCosineAnnealingLR
 from .utils.metrics import mse, rmse, pearson, mean_bias
 
 
+def interpolate_input(x: torch.Tensor, y: torch.Tensor):
+    # interpolate input to match output size
+    out_h, out_w = y.shape[-2], y.shape[-1]
+    x = torch.nn.functional.interpolate(x, (out_h, out_w), mode="bilinear")
+    return x
+
+
+OptimizerCallable = Callable[[Iterable], torch.optim.Optimizer]
+
+
 class DownscaleLitModule(LightningModule):
     def __init__(
         self,
         net: torch.nn.Module,
-        optimizer: str = "adam",
+        optimizer: OptimizerCallable = torch.optim.Adam,
         lr: float = 0.001,
         weight_decay: float = 0.005,
         warmup_epochs: int = 5,
@@ -23,12 +33,7 @@ class DownscaleLitModule(LightningModule):
         super().__init__()
         self.save_hyperparameters(logger=False, ignore=["net"])
         self.net = net
-        if optimizer == "adam":
-            self.optim_cls = torch.optim.Adam
-        elif optimizer == "adamw":
-            self.optim_cls = torch.optim.AdamW
-        else:
-            raise NotImplementedError("Only support Adam and AdamW")
+        self.optim_cls = optimizer
 
     def forward(self, x):
         return self.net.predict(x)
@@ -54,7 +59,11 @@ class DownscaleLitModule(LightningModule):
 
     def training_step(self, batch: Any, batch_idx: int):
         x, y, _, out_variables = batch
-        loss_dict, _ = self.net.forward(x, y, out_variables, [mse], lat=self.lat)
+        x = interpolate_input(x, y)
+
+        loss_dict, _ = self.net.forward(
+            x, y, out_variables, [mse], lat=self.lat, log_postfix=""
+        )
         loss_dict = loss_dict[0]
         for var in loss_dict.keys():
             self.log(
@@ -69,9 +78,18 @@ class DownscaleLitModule(LightningModule):
 
     def validation_step(self, batch: Any, batch_idx: int):
         x, y, variables, out_variables = batch
+        x = interpolate_input(x, y)
 
-        all_loss_dicts, _ = self.net.upsample(
-            x, y, out_variables, self.denormalization, [rmse, pearson, mean_bias]
+        all_loss_dicts, _ = self.net.evaluate(
+            x,
+            y,
+            variables,
+            out_variables,
+            self.denormalization,
+            [rmse, pearson, mean_bias],
+            self.lat,
+            self.val_clim,
+            log_postfix="",
         )
         loss_dict = {}
         for d in all_loss_dicts:
@@ -92,9 +110,18 @@ class DownscaleLitModule(LightningModule):
 
     def test_step(self, batch: Any, batch_idx: int):
         x, y, variables, out_variables = batch
+        x = interpolate_input(x, y)
 
-        all_loss_dicts, _ = self.net.upsample(
-            x, y, out_variables, self.denormalization, [rmse, pearson, mean_bias]
+        all_loss_dicts, _ = self.net.evaluate(
+            x,
+            y,
+            variables,
+            out_variables,
+            self.denormalization,
+            [rmse, pearson, mean_bias],
+            self.lat,
+            self.test_clim,
+            log_postfix="",
         )
         loss_dict = {}
         for d in all_loss_dicts:

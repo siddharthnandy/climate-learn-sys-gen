@@ -1,8 +1,6 @@
-from math import log
 import torch
 from torch import nn
-from torch.distributions.normal import Normal
-from .cnn_blocks import PeriodicConv2D, ResidualBlock, Upsample
+from .cnn_blocks import PeriodicConv2D, ResidualBlock
 
 # Large based on https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/master/labml_nn/diffusion/ddpm/unet.py
 # MIT License
@@ -16,13 +14,9 @@ class ResNet(nn.Module):
         hidden_channels=128,
         activation="leaky",
         out_channels=None,
-        upsampling=1,
         norm: bool = True,
         dropout: float = 0.1,
         n_blocks: int = 2,
-        prob_type: str = None,  # parametric, mcdropout, categorical
-        n_samples: int = 50,  # only used for mcdropout
-        num_output_bins: int = 50,  # only used for categorical
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -30,7 +24,6 @@ class ResNet(nn.Module):
             out_channels = in_channels
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
-        self.upsampling = upsampling
 
         if activation == "gelu":
             self.activation = nn.GELU()
@@ -42,10 +35,6 @@ class ResNet(nn.Module):
             self.activation = nn.LeakyReLU(0.3)
         else:
             raise NotImplementedError(f"Activation {activation} not implemented")
-
-        assert not prob_type or prob_type in ["parametric", "mcdropout", "categorical"]
-        self.prob_type = prob_type
-        self.n_samples = n_samples
 
         insize = self.in_channels * history
         # Project image into feature map
@@ -62,16 +51,8 @@ class ResNet(nn.Module):
                     activation=activation,
                     norm=True,
                     dropout=dropout,
-                    mc_dropout=(self.prob_type == "mcdropout"),
                 )
             )
-
-        if upsampling > 1:
-            n_upsamplers = int(log(upsampling, 2))
-            for i in range(n_upsamplers - 1):
-                blocks.append(Upsample(hidden_channels))
-                blocks.append(self.activation)
-            blocks.append(Upsample(hidden_channels))
 
         self.blocks = nn.ModuleList(blocks)
 
@@ -84,18 +65,6 @@ class ResNet(nn.Module):
             hidden_channels, out_channels, kernel_size=7, padding=3
         )
 
-        if prob_type == "parametric":
-            self.final_std = PeriodicConv2D(
-                hidden_channels, out_channels, kernel_size=7, padding=3
-            )
-
-        # final layer for categorical, change to be number of bins
-        if self.prob_type == "categorical":
-            self.num_output_bins = num_output_bins
-            self.final = PeriodicConv2D(
-                self.hidden_channels, self.num_output_bins, kernel_size=7, padding=3
-            )
-
     def predict(self, x):
         if len(x.shape) == 5:  # history
             x = x.flatten(1, 2)
@@ -107,24 +76,9 @@ class ResNet(nn.Module):
 
         pred = self.final(self.activation(self.norm(x)))  # pred.shape [128, 50, 32, 64]
 
-        # following the implementation on https://github.com/sagar-garg/WeatherBench/blob/f41f497ac45377d363dc30bfa77daf50d7b28afd/src/networks.py#L208
-        if self.prob_type == "categorical":
-            bins = int(x.shape[-1] / self.n_vars)  # bins = 64, self.n_vars = 1
-            outputs = []
-            for i in range(self.n_vars):
-                o = nn.Softmax(dim=1)(pred[..., i * bins : (i + 1) * bins])
-                # o.shape [128, 50, 32, 64]
-                outputs.append(o)
-            pred = torch.stack(outputs, dim=2)  # [128, 50, 1, 32, 64]
-
-        if self.prob_type == "parametric":
-            std = self.final_std(self.activation(self.norm(x)))
-            std = torch.exp(std)
-            pred = Normal(pred, std)
-
         return pred
 
-    def forward(self, x: torch.Tensor, y: torch.Tensor, out_variables, metric, lat, deg_lats):
+    def forward_old(self, x: torch.Tensor, y: torch.Tensor, out_variables, metric, lat, deg_lats):
         # B, C, H, W
         if self.prob_type == "categorical":
             self.n_vars = len(out_variables)
@@ -357,3 +311,24 @@ class ResNet(nn.Module):
         with torch.no_grad():
             pred = self.predict(x)
         return ([m(pred, y, out_vars, transform=transform) for m in metric], x)
+    def forward(
+        self, x: torch.Tensor, y: torch.Tensor, out_variables, metric, lat, log_postfix
+    ):
+        # B, C, H, W
+        pred = self.predict(x)
+        return (
+            [
+                m(pred, y, out_variables, lat=lat, log_postfix=log_postfix)
+                for m in metric
+            ],
+            x,
+        )
+
+    def evaluate(
+        self, x, y, variables, out_variables, transform, metrics, lat, clim, log_postfix
+    ):
+        pred = self.predict(x)
+        return [
+            m(pred, y, transform, out_variables, lat, clim, log_postfix)
+            for m in metrics
+        ], pred

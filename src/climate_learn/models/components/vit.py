@@ -30,7 +30,6 @@ class VisionTransformer(nn.Module):
             "10m_v_component_of_wind",
         ],
         out_vars=["2m_temperature"],
-        upsampling=1,
         embed_dim=1024,
         depth=24,
         decoder_depth=8,
@@ -40,8 +39,6 @@ class VisionTransformer(nn.Module):
         super().__init__()
 
         self.img_size = img_size
-        self.upsampling = upsampling
-        self.img_out_size = [img_size[0] * upsampling, img_size[1] * upsampling]
         self.n_channels = len(in_vars)
         self.patch_size = patch_size
 
@@ -86,9 +83,6 @@ class VisionTransformer(nn.Module):
         for i in range(decoder_depth):
             self.head.append(nn.Linear(embed_dim, embed_dim))
             self.head.append(nn.GELU())
-        self.head.append(
-            nn.Linear(embed_dim, len(self.out_vars) * patch_size**2 * upsampling**2)
-        )
         self.head = nn.Sequential(*self.head)
         # --------------------------------------------------------------------------
 
@@ -142,10 +136,10 @@ class VisionTransformer(nn.Module):
         x: (N, L, patch_size**2 *3)
         imgs: (N, 3, H, W)
         """
-        p = self.patch_size * self.upsampling
+        p = self.patch_size
         c = len(self.out_vars)
-        h = self.img_out_size[0] // p
-        w = self.img_out_size[1] // p
+        h = self.img_size[0] // p
+        w = self.img_size[1] // p
         assert h * w == x.shape[1]
 
         x = x.reshape(shape=(x.shape[0], h, w, p, p, c))
@@ -173,69 +167,48 @@ class VisionTransformer(nn.Module):
 
         return x
 
-    def forward_loss(self, y, pred, out_variables, metric, lat):  # metric is a list
+    def forward_loss(
+        self, y, pred, out_variables, metric, lat, log_postfix
+    ):  # metric is a list
         """
         y: [N, 3, H, W]
         pred: [N, L, p*p*3]
         """
         pred = self.unpatchify(pred)
-        return ([m(pred, y, out_variables, lat=lat) for m in metric], pred)
+        return (
+            [
+                m(pred, y, out_variables, lat=lat, log_postfix=log_postfix)
+                for m in metric
+            ],
+            pred,
+        )
 
-    def forward(self, x, y, out_variables, metric, lat):
+    def forward(self, x, y, out_variables, metric, lat, log_postfix):
+        if len(x.shape) == 5:  # history
+            x = x.flatten(1, 2)
         embeddings = self.forward_encoder(x)  # B, L, D
         preds = self.head(embeddings)
-        loss, preds = self.forward_loss(y, preds, out_variables, metric, lat)
+        loss, preds = self.forward_loss(
+            y, preds, out_variables, metric, lat, log_postfix
+        )
         return loss, preds
 
     def predict(self, x):
+        if len(x.shape) == 5:  # history
+            x = x.flatten(1, 2)
         with torch.no_grad():
             embeddings = self.forward_encoder(x)
             pred = self.head(embeddings)
         return self.unpatchify(pred)
 
-    def rollout(
-        self,
-        x,
-        y,
-        clim,
-        variables,
-        out_variables,
-        steps,
-        metric,
-        transform,
-        lat,
-        log_steps,
-        log_days,
+    def evaluate(
+        self, x, y, variables, out_variables, transform, metrics, lat, clim, log_postfix
     ):
-        preds = []
-        for _ in range(steps):
-            x = self.predict(x)
-            preds.append(x)
-        preds = torch.stack(preds, dim=1)
-        if len(y.shape) == 4:
-            y = y.unsqueeze(1)
-
-        return (
-            [
-                m(
-                    preds,
-                    y,
-                    out_variables,
-                    transform=transform,
-                    lat=lat,
-                    log_steps=log_steps,
-                    log_days=log_days,
-                    clim=clim,
-                )
-                for m in metric
-            ],
-            x,
-        )
-
-    def upsample(self, x, y, out_vars, transform, metric):
-        with torch.no_grad():
-            pred = self.predict(x)
-        return ([m(pred, y, out_vars, transform=transform) for m in metric], x)
+        pred = self.predict(x)
+        return [
+            m(pred, y, transform, out_variables, lat, clim, log_postfix)
+            for m in metrics
+        ], pred
 
 
 # model = VisionTransformer(img_size=[32, 64], embed_dim=128, patch_size=2, depth=8, upsampling=2).cuda()
