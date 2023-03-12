@@ -129,6 +129,7 @@ class ResNet(nn.Module):
         if self.prob_type == "categorical":
             self.n_vars = len(out_variables)
 
+        x = x.to(device=x.device, dtype=torch.half)
         pred = self.predict(x)
         return ([m(pred, y, out_variables, lat=lat, deg_lats=deg_lats) for m in metric], x)
 
@@ -216,6 +217,7 @@ class ResNet(nn.Module):
                 assert len(variables) == len(out_variables)
 
             preds = []
+            x = x.to(device=x.device, dtype=torch.half)
             for _ in range(steps):
                 x = self.predict(x)
                 preds.append(x)
@@ -325,6 +327,7 @@ class ResNet(nn.Module):
                 assert len(variables) == len(out_variables)
 
             preds = []
+            x = x.to(device=x.device, dtype=torch.half)
             for _ in range(steps):
                 x = self.predict(x)
                 preds.append(x)

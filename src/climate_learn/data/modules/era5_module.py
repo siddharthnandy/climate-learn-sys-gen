@@ -139,7 +139,7 @@ class ERA5Forecasting(ERA5):
         print("done")
         input_data = inp_data[0:-pred_range:subsample].to_numpy().astype(np.float32)
         output_data = out_data[pred_range::subsample].to_numpy().astype(np.float32)
-        
+
         sys_gen = True
         if sys_gen:
             num_examples = input_data.shape[0]
@@ -150,8 +150,6 @@ class ERA5Forecasting(ERA5):
             lat_grid = np.repeat(lat_grid[np.newaxis, np.newaxis, :, :], num_examples, axis=0)
             lon_grid = np.repeat(lon_grid[np.newaxis, np.newaxis, :, :], num_examples, axis=0)
             input_data = np.concatenate((input_data, lat_grid, lon_grid), axis=1)
-            lowlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, 0:num_lat//2, np.newaxis], num_examples, axis=0)
-            highlat_tensors = np.repeat(self.lat[np.newaxis, np.newaxis, num_lat//2:, np.newaxis], num_examples, axis=0)
 
             # Southern Hemisphere
             lowlat_input_patch = input_data[:,:,0:num_lat//2,:]
@@ -159,25 +157,25 @@ class ERA5Forecasting(ERA5):
             # Northern Hemisphere
             highlat_input_patch = input_data[:,:,num_lat//2:,:]
             highlat_output_patch = output_data[:,:,num_lat//2:,:]
-            # Western Hemisphere
-            lowlong_input_patch = input_data[:,:,:,0:num_lon//2]
-            lowlong_output_patch = output_data[:,:,:,0:num_lon//2]
-            # Eastern Hemisphere
-            highlong_input_patch = input_data[:,:,:,num_lon//2:]
-            highlong_output_patch = output_data[:,:,:,num_lon//2:]
+            # # Western Hemisphere
+            # lowlong_input_patch = input_data[:,:,:,0:num_lon//2]
+            # lowlong_output_patch = output_data[:,:,:,0:num_lon//2]
+            # # Eastern Hemisphere
+            # highlong_input_patch = input_data[:,:,:,num_lon//2:]
+            # highlong_output_patch = output_data[:,:,:,num_lon//2:]
 
-            # SW quadrant
-            lowlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
-            lowlat_lowlong_output_patch = output_data[:,:,0:num_lat//2,0:num_lon//2]
-             # SE quadrant
-            lowlat_highlong_input_patch = input_data[:,:,0:num_lat//2,num_lon//2:]
-            lowlat_highlong_output_patch = output_data[:,:,0:num_lat//2,num_lon//2:]
-             # NW quadrant
-            highlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
-            highlat_lowlong_output_patch = output_data[:,:,num_lat//2:,0:num_lon//2]
-             # NE quadrant
-            highlat_highlong_input_patch = input_data[:,:,num_lat//2:,num_lon//2:]
-            highlat_highlong_output_patch = output_data[:,:,num_lat//2:,num_lon//2:]
+            # # SW quadrant
+            # lowlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
+            # lowlat_lowlong_output_patch = output_data[:,:,0:num_lat//2,0:num_lon//2]
+            #  # SE quadrant
+            # lowlat_highlong_input_patch = input_data[:,:,0:num_lat//2,num_lon//2:]
+            # lowlat_highlong_output_patch = output_data[:,:,0:num_lat//2,num_lon//2:]
+            #  # NW quadrant
+            # highlat_lowlong_input_patch = input_data[:,:,0:num_lat//2,0:num_lon//2]
+            # highlat_lowlong_output_patch = output_data[:,:,num_lat//2:,0:num_lon//2]
+            #  # NE quadrant
+            # highlat_highlong_input_patch = input_data[:,:,num_lat//2:,num_lon//2:]
+            # highlat_highlong_output_patch = output_data[:,:,num_lat//2:,num_lon//2:]
 
             if (split == 'train' or split == 'val'):
                 # self.inp_data = np.concatenate((lowlat_lowlong_input_patch, highlat_highlong_input_patch)).astype(np.float32)
